@@ -1,15 +1,20 @@
+use std::cell::RefCell;
 use std::rc::Rc;
 use yew::prelude::*;
-use std::cell::RefCell;
 
-#[derive(Properties)]
+#[derive(Clone, Properties)]
 pub struct Props {
-    #[props(required)]
     pub bridge: Rc<RefCell<CrossComponentBridge<Vec<u8>>>>,
 }
 
 pub struct CrossComponentBridge<T> {
     callback: Option<Callback<T>>,
+}
+
+impl<T> Default for CrossComponentBridge<T> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<T> CrossComponentBridge<T> {
@@ -19,8 +24,6 @@ impl<T> CrossComponentBridge<T> {
     pub fn send(&self, msg: T) {
         if let Some(cb) = &self.callback {
             cb.emit(msg)
-        } else {
-            stdweb::console!(log, "?");
         }
     }
     pub fn register_callback(&mut self, callback: Callback<T>) {

@@ -1,6 +1,6 @@
 [package]
 name = "lc3web"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Nam Jeonghyun <ska827@snu.ac.kr>"]
 edition = "2018"
 
@@ -9,8 +9,8 @@ publish = false
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-yew = "0.8"
+yew = "0.17"
 lc3-rs = "0.5"
 serde = "1.0"
-stdweb = "0.4"
 lc3asm = "0.1"
+web-sys = "0.3"

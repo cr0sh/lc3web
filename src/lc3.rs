@@ -6,10 +6,11 @@ use std::io::{Cursor, Read, Result as IOResult};
 use yew::prelude::*;
 use yew::worker::*;
 
-pub struct LC3Console {
+pub struct Lc3Console {
     display: String,
     input: String,
-    context: Box<dyn Bridge<LC3Agent>>,
+    context: Box<dyn Bridge<Lc3Agent>>,
+    link: ComponentLink<Self>,
 }
 
 pub enum Msg {
@@ -21,23 +22,20 @@ pub enum Msg {
     Input(String),
 }
 
-impl Component for LC3Console {
+impl Component for Lc3Console {
     type Message = Msg;
     type Properties = Props;
-    fn create(props: Self::Properties, mut link: ComponentLink<Self>) -> Self {
-        let callback = link.send_back(|x: <LC3Agent as Agent>::Output| Msg::AgentResponse(x.0));
+    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
+        let callback = link.callback(|x: <Lc3Agent as Agent>::Output| Msg::AgentResponse(x.0));
         props
             .bridge
             .borrow_mut()
-            .register_callback(link.send_back(|v| {
-                stdweb::console!(log, "Received program!");
-                Msg::LoadFromAssembler(v)
-            }));
-        stdweb::console!(log, "Registered CCB callback");
-        LC3Console {
+            .register_callback(link.callback(Msg::LoadFromAssembler));
+        Lc3Console {
             display: String::new(),
             input: String::new(),
-            context: LC3Agent::bridge(callback),
+            context: Lc3Agent::bridge(callback),
+            link,
         }
     }
 
@@ -77,24 +75,30 @@ impl Component for LC3Console {
             }
         }
     }
-}
 
-impl Renderable<Self> for LC3Console {
-    fn view(&self) -> Html<Self> {
+    fn view(&self) -> Html {
+        let cb0 = self.link.callback(|_| Msg::LoadSample);
+        let cb1 = self.link.callback(|e: InputData| Msg::Input(e.value));
+        let cb2 = self.link.callback(|_| Msg::Run);
+        let cb3 = self.link.callback(|_| Msg::Clear);
         html! {
             <div>
                 { "Output" }
                 <br />
                 <textarea id="lc3-output" rows=15 cols=25 value=&self.display />
-                <button onclick = |_| Msg::LoadSample>{ "Load sample program" }</button>
+                <button onclick = cb0>{ "Load sample program" }</button>
                 <br />
                 { "Input" }
                 <br />
-                <textarea id="lc3-input" rows=15 cols=25 value=&self.input oninput=|e| Msg::Input(e.value) />
-                <button onclick = |_| Msg::Run>{ "Run" }</button>
-                <button onclick = |_| Msg::Clear>{ "Clear output screen" }</button>
+                <textarea id="lc3-input" rows=15 cols=25 value=&self.input oninput = cb1 />
+                <button onclick = cb2>{ "Run" }</button>
+                <button onclick = cb3>{ "Clear output screen" }</button>
             </div>
         }
+    }
+
+    fn change(&mut self, _: <Self as yew::Component>::Properties) -> ShouldRender {
+        true
     }
 }
 
@@ -104,19 +108,17 @@ enum AgentRequest {
     Run(String),
     Reset,
 }
-impl Transferable for AgentRequest {}
 
 #[derive(Serialize, Deserialize)]
 struct AgentResponse(String);
-impl Transferable for AgentResponse {}
 
-struct LC3Agent {
+struct Lc3Agent {
     lc3_vm: Box<VM<IOStreamHandler<StringCell, Vec<u8>>>>,
     link: AgentLink<Self>,
 }
 
-impl Agent for LC3Agent {
-    type Reach = Context;
+impl Agent for Lc3Agent {
+    type Reach = Context<Self>;
     type Message = ();
     type Input = AgentRequest;
     type Output = AgentResponse;
@@ -134,17 +136,17 @@ impl Agent for LC3Agent {
 
     fn update(&mut self, _msg: Self::Message) {}
 
-    fn handle(&mut self, msg: Self::Input, who: HandlerId) {
+    fn handle_input(&mut self, msg: Self::Input, who: HandlerId) {
         match msg {
             AgentRequest::Load(program) => {
                 self.lc3_vm.load_u8(&program);
                 self.link
-                    .response(who, AgentResponse(String::from("Loaded program...\n")))
+                    .respond(who, AgentResponse(String::from("Loaded program...\n")))
             }
             AgentRequest::Run(input) => {
                 (self.lc3_vm.context.0).0.set(Cursor::new(input));
                 self.lc3_vm.run().unwrap();
-                self.link.response(
+                self.link.respond(
                     who,
                     AgentResponse(String::from_utf8_lossy(&self.lc3_vm.context.1).into_owned()),
                 )
@@ -155,7 +157,8 @@ impl Agent for LC3Agent {
                     Vec::new(),
                 ));
                 self.lc3_vm = Box::new(vm);
-                self.link.response(who, AgentResponse(String::from("VM reset complete\n")))
+                self.link
+                    .respond(who, AgentResponse(String::from("VM reset complete\n")))
             }
         }
     }
