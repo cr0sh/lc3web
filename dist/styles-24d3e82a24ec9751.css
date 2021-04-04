@@ -1,0 +1,24 @@
+.container {
+  border: black 1px solid;
+  padding: 5px; }
+
+.outer-container {
+  width: 50%;
+  flex: none;
+  padding: 5px; }
+
+button {
+  margin-left: 5px; }
+
+@media (min-width: 800px) {
+  .outer-container {
+    flex: 1;
+    width: 50%; } }
+
+#root-element {
+  display: flex;
+  flex-flow: row wrap; }
+
+textarea {
+  width: 100%;
+  box-sizing: border-box; }
